@@ -26,28 +26,45 @@ let appLogo =
 
 [@bs.module] external logo : string = "./logo.svg";
 
-type state = {grainWeight: int};
+type state = {
+  grainWeight: int,
+  grainTemp: int,
+};
 
 type action =
-  | UpdateGrainWeight(string);
+  | UpdateGrainWeight(string)
+  | UpdateGrainTemp(string);
 
 let component = ReasonReact.reducerComponent("App");
+/*
+ let wrapFailureInOption = (fn) =>
+ try(fn()) {
+ | exn => None
+ }; */
 
-let typeInWeight = (weight, send) => send(UpdateGrainWeight(weight));
+let parseInput = (default, input) =>
+  if (String.length(input) == 0) {
+    0;
+  } else {
+    try (int_of_string(input)) {
+    | exn => default
+    };
+  };
+
+let dispatch = (send, action) => send(action);
 
 let make = (~message, _children) => {
   ...component,
-  initialState: () => {grainWeight: 0},
+  initialState: () => {grainWeight: 0, grainTemp: 20},
   reducer: (action, state: state) =>
     switch (action) {
+    | UpdateGrainTemp(newGrainTemp) =>
+      Js.log("ABOUT TO UPDATE GRAIN TEMP");
+      let parsedTemp = parseInput(state.grainTemp, newGrainTemp);
+      ReasonReact.Update({...state, grainTemp: parsedTemp});
     | UpdateGrainWeight(newGrainWeight) =>
-      let newWeight =
-        if (newGrainWeight |> String.length == 0) {
-          0;
-        } else {
-          newGrainWeight |> int_of_string;
-        };
-      ReasonReact.Update({grainWeight: newWeight});
+      let parsedWeight = parseInput(state.grainWeight, newGrainWeight);
+      ReasonReact.Update({...state, grainWeight: parsedWeight});
     },
   render: self =>
     <div className=app>
@@ -61,30 +78,26 @@ let make = (~message, _children) => {
         (ReasonReact.string("and save to reload."))
       </p>
       <div>
-        <span>
-          (ReasonReact.string("Enter the weight of your grain: "))
-        </span>
-        <input
-          _type="text"
-          name="grain-weight"
-          value=(self.state.grainWeight |> string_of_int)
-          onChange=(
-            ev =>
-              typeInWeight(
-                ReactDOMRe.domElementToObj(ReactEventRe.Form.target(ev))##value,
-                self.send,
-              )
-          )
+        <div> <p> (ReasonReact.string("Beer parameters")) </p> </div>
+        <FormInput
+          fieldName="grain-weight (kg) : "
+          action=(weight => UpdateGrainWeight(weight))
+          value=self.state.grainWeight
+          callback=(dispatch(self.send))
         />
+        <FormInput
+          fieldName="grain-temperature (C) : "
+          action=(weight => UpdateGrainTemp(weight))
+          value=self.state.grainTemp
+          callback=(dispatch(self.send))
+        />        
       </div>
       <div>
         <span> (ReasonReact.string("You will need: ")) </span>
         <span>
           (
             ReasonReact.string(
-              (self.state.grainWeight |> float_of_int)
-              *. 2.7
-              |> string_of_float,
+              float_of_int(self.state.grainWeight) *. 2.7 |> string_of_float,
             )
           )
         </span>
